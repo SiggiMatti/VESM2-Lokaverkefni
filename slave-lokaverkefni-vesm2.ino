@@ -1,29 +1,30 @@
-// Include Arduino Wire library for I2C
+// Sæki Wire library-ið svo að ég geti sent upplýsingar milli báða arduino-ana og ég sæki servo svo að ég geti stjórnað servo-unum
 #include <Wire.h>
 #include <Servo.h> 
  
-// Define Slave I2C Address
+// Defina slave I2C addressið og echoPin og trigPin fyrir ultrasonic sensorinn
 #define SLAVE_ADDR 9
 #define echoPin 4 
 #define trigPin 2
 
-
-void receiveEvent(int); // <--- Bæta þessari línu við.
+// Geri receiveEvent og request sem að keyra smá kóða til að taka á móti og suprja eftir upplýsingum frá slave arduino
+void receiveEvent(int); 
 void requestEvent();
 
+// Set upp pinnanna fyrir L293D chip-ið sem að stjórnar DC mótorunum
 int enablePin = 3;
 int in1Pin = 5;
 int in2Pin = 6;
 
-// Declare the Servo pin 
+// Set upp báða servo pinnanna
 int servoPin1 = 7; 
 int servoPin2 = 8;
 
-// Create a servo object 
+// Bæy til servo object fyrir báða servo-ana
 Servo Servo1;
 Servo Servo2;
 
-// Variable for received data
+// Breyta fyrir upplýsingar sem ég fæ frá master
 int rd;
 
 boolean reverse = 0;
@@ -34,17 +35,16 @@ void setup() {
   Servo1.attach(servoPin1); 
   Servo2.attach(servoPin2);
  
-  pinMode(trigPin, OUTPUT); // Sets the trigPin as an OUTPUT
-  pinMode(echoPin, INPUT); // Sets the echoPin as an INPUT
-  Serial.begin(9600); // // Serial Communication is starting with 9600 of baudrate speed
+  pinMode(trigPin, OUTPUT); // Læt trigPinnann sem OUTPUT
+  pinMode(echoPin, INPUT); // Læt ehcoPinnann sem INPUT
+  Serial.begin(9600); // // Set upp Serial
   
   pinMode(in1Pin, OUTPUT);
   pinMode(in2Pin, OUTPUT);
   pinMode(enablePin, OUTPUT);
   
-  // Initialize I2C communications as Slave
+  // Byrja I2C samskipti sem slave
   Wire.begin(8);
-
   Wire.onReceive(receiveEvent); 
   Wire.onRequest(requestEvent); 
   
@@ -52,6 +52,7 @@ void setup() {
 }
 
 void loop() {
+  // Ég sendi númer frá masterinum til slave eftir því hvaða átt notandi ýtir á tökkunum á fjarstýringunni og eftir því hvaða átt hann velur þá læt ég bílinn fara í rétta átt
   if (rd == 4) {
     setMotor(200, reverse);
   }
@@ -72,6 +73,7 @@ void loop() {
   }
 }
 
+// Hérna er tekið inn tvær breytur speed sem að velur hversu hratt DC mótorinn fer og tekur inn breytu reverse sem að er venjulega 0 en ef notandi velur að bakka þá verður breytan 1 og bíllinn bakkar eða fer áfram eftir því
 void setMotor(int speed, boolean reverse)
 {
   analogWrite(enablePin, speed);
@@ -80,28 +82,29 @@ void setMotor(int speed, boolean reverse)
 }
 
 void receiveEvent(int howMany) {
-  // read one character from the I2C
+  // Tek inn upplýsingar frá master-inum
   rd = Wire.read();
-  // Print value of incoming data
+  // Prenta það sem mér er sent
   Serial.println(rd);
     
 }
 
-void requestEvent()                                //This Function is called when Master wants value from slave
+// Þegar að masterinn vill fá upplýsingar frá slave-inum þá keyrir þessi kóði
+void requestEvent()
 {
+  // Hérna keyrir smá kóði sem að finnur út hversu marga sentimetra hlutur er í burtu frá ultrasonic sensorinum
   long duration;
   int distance;
   digitalWrite(trigPin, LOW);
   delayMicroseconds(2);
-  // Sets the trigPin HIGH (ACTIVE) for 10 microseconds
+  // Lætur trigPinnann HIGH í tíu míkrósekúndur
   digitalWrite(trigPin, HIGH);
   delayMicroseconds(10);
   digitalWrite(trigPin, LOW);
-  // Reads the echoPin, returns the sound wave travel time in microseconds
+  // Lesur echoPinnann og skilar hversu lengi hljóðið tók að fara til hlutsins
   duration = pulseIn(echoPin, HIGH);
-  // Calculating the distance
-  byte SlaveSend = duration * 0.034 / 2; // Speed of sound wave divided by 2 (go and back)
-  // Displays the distance on the Serial Monitor    // Convert potvalue digital value (0 to 1023) to (0 to 127)
-  // sends one byte converted POT value to master
+  // Formúla til að finna út hvernig maður breytir tímanum í sentimetra.
+  byte SlaveSend = duration * 0.034 / 2;
+  // Ég sendi síðan hversu marga sentimetra hlutur er frá ultrasonic sensorinum til mastersins svo hann getur sýnt það á lcd display-inu
   Wire.write(SlaveSend);
 }
